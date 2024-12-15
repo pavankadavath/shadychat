@@ -6,99 +6,86 @@ const chatRoutes = require("./routes/chatRoutes");
 const messageRoutes = require("./routes/messageRoutes");
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 const path = require("path");
-const cors = require("cors");
 
 dotenv.config();
 connectDB();
 const app = express();
 
-// Middleware to parse JSON data
-app.use(express.json()); 
+app.use(express.json()); // to accept json data
 
-// Enable CORS for requests from frontend
-app.use(cors({
-  origin: 'http://localhost:3000',
-  credentials: true,  // Allow sending credentials like cookies, if needed
-}));
+// app.get("/", (req, res) => {
+//   res.send("API Running!");
+// });
 
-// Define routes
 app.use("/api/user", userRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/message", messageRoutes);
 
-// -------------------------- Deployment ------------------------------
+// --------------------------deployment------------------------------
+
 const __dirname1 = path.resolve();
 
 if (process.env.NODE_ENV === "production") {
-  app.use(express.static(path.join(__dirname1, "../frontend/build")));
+  app.use(express.static(path.join(__dirname1, "/frontend/build")));
 
   app.get("*", (req, res) =>
-    // console.log("Serving from ",path.resolve(__dirname1, "../frontend", "build", "index.html"))
-    res.sendFile(path.resolve(__dirname1, "../frontend", "build", "index.html"))
+    res.sendFile(path.resolve(__dirname1, "frontend", "build", "index.html"))
   );
 } else {
   app.get("/", (req, res) => {
     res.send("API is running..");
   });
 }
-// -------------------------- Deployment ------------------------------
+
+// --------------------------deployment------------------------------
 
 // Error Handling middlewares
 app.use(notFound);
 app.use(errorHandler);
 
-// Define PORT and start the server
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT;
 
-const server = app.listen(PORT, () => {
-  console.log(`Server running on PORT ${PORT}`);
-});
+const server = app.listen(
+  PORT,
+  console.log(`Server running on PORT ${PORT}`)
+);
 
-// Initialize socket.io for real-time communication
 const io = require("socket.io")(server, {
-  pingTimeout: 60000,  // Timeout setting for socket.io
+  pingTimeout: 60000,
   cors: {
-    origin: "http://localhost:3000",  // Allow requests from this origin
-    credentials: true,
+    origin: "http://localhost:3000",
+    // credentials: true,
   },
 });
 
-// Handling socket.io events
 io.on("connection", (socket) => {
   console.log("Connected to socket.io");
-
-  // Handle initial setup when a user connects
   socket.on("setup", (userData) => {
-    socket.join(userData._id);  // Join the room with user ID
+    socket.join(userData._id);
     socket.emit("connected");
   });
 
-  // User joins a chat room
   socket.on("join chat", (room) => {
     socket.join(room);
     console.log("User Joined Room: " + room);
   });
-  // Handle typing indication
   socket.on("typing", (room) => socket.in(room).emit("typing"));
   socket.on("stop typing", (room) => socket.in(room).emit("stop typing"));
 
-  // New message is sent
   socket.on("new message", (newMessageRecieved) => {
-    const chat = newMessageRecieved.chat;
+    var chat = newMessageRecieved.chat;
 
     if (!chat.users) return console.log("chat.users not defined");
 
-    // Notify all users in the chat except the sender
     chat.users.forEach((user) => {
-      if (user._id == newMessageRecieved.sender._id) return;  // Skip sender
+      if (user._id == newMessageRecieved.sender._id) return;
 
-      socket.in(user._id).emit("message received", newMessageRecieved);  // Notify others
+      socket.in(user._id).emit("message recieved", newMessageRecieved);
     });
   });
 
-  // Handle user disconnection and cleanup
-  socket.off("setup", (userData) => {
+  socket.off("setup", () => {
     console.log("USER DISCONNECTED");
-    socket.leave(userData._id);  // Leave the room when user disconnects
+    socket.leave(userData._id);
   });
 });

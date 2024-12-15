@@ -1,3 +1,4 @@
+
 import { Button } from "@chakra-ui/button";
 import { FormControl, FormLabel } from "@chakra-ui/form-control";
 import { Input, InputGroup, InputRightElement } from "@chakra-ui/input";
@@ -13,28 +14,30 @@ const Signup = () => {
   const toast = useToast();
   const navigate = useNavigate();
 
-  const [name, setName] = useState();
-  const [email, setEmail] = useState();
-  const [confirmpassword, setConfirmpassword] = useState();
-  const [password, setPassword] = useState();
-  const [pic, setPic] = useState();
-  const [picLoading, setPicLoading] = useState(false);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [confirmpassword, setConfirmpassword] = useState("");
+  const [password, setPassword] = useState("");
+  const [pic, setPic] = useState(""); // No initial pic selected
+  const [loading, setLoading] = useState(false);
 
-  const submitHandler = async (evt) => {
+  const submitHandler = async () => {
+    setLoading(true);
 
-    setPicLoading(true);
+    // If fields are empty
     if (!name || !email || !password || !confirmpassword) {
       toast({
-        title: "Please Fill all the Feilds",
+        title: "Please Fill all the Fields",
         status: "warning",
         duration: 5000,
         isClosable: true,
         position: "bottom",
       });
-      setPicLoading(false);
+      setLoading(false);
       return;
     }
 
+    // If passwords do not match
     if (password !== confirmpassword) {
       toast({
         title: "Passwords Do Not Match",
@@ -43,8 +46,13 @@ const Signup = () => {
         isClosable: true,
         position: "bottom",
       });
+      setLoading(false);
       return;
     }
+
+    // If no picture uploaded, use the default image
+    const finalPic = pic || "/default.jpg"; // Path to your default image in the public folder
+
     try {
       const config = {
         headers: {
@@ -57,7 +65,7 @@ const Signup = () => {
           name,
           email,
           password,
-          pic,
+          pic: finalPic,
         },
         config
       );
@@ -68,39 +76,38 @@ const Signup = () => {
         isClosable: true,
         position: "bottom",
       });
+
       localStorage.setItem("userInfo", JSON.stringify(data));
-      setPicLoading(false);
+      setLoading(false);
       navigate("/chats");
     } catch (error) {
       toast({
-        title: "Error Occured!",
+        title: "Error Occurred!",
         description: error.response.data.message,
         status: "error",
         duration: 5000,
         isClosable: true,
         position: "bottom",
       });
-      setPicLoading(false);
+      setLoading(false);
     }
   };
 
+  // Post details for image upload (Cloudinary or local storage)
   const postDetails = (pics) => {
-    setPicLoading(true);
-    if (pics === undefined) {
-      toast({
-        title: "Please Select an Image!",
-        status: "warning",
-        duration: 5000,
-        isClosable: true,
-        position: "bottom",
-      });
+    setLoading(true);
+
+    if (!pics) {
+      setLoading(false);
       return;
     }
+
     if (pics.type === "image/jpeg" || pics.type === "image/png") {
       const data = new FormData();
       data.append("file", pics);
       data.append("upload_preset", "chat-app");
       data.append("cloud_name", "piyushproj");
+
       fetch("https://api.cloudinary.com/v1_1/piyushproj/image/upload", {
         method: "post",
         body: data,
@@ -108,27 +115,26 @@ const Signup = () => {
         .then((res) => res.json())
         .then((data) => {
           setPic(data.url.toString());
-          setPicLoading(false);
+          setLoading(false);
         })
         .catch((err) => {
           console.log(err);
-          setPicLoading(false);
+          setLoading(false);
         });
     } else {
       toast({
-        title: "Please Select an Image!",
+        title: "Please Select a valid Image!",
         status: "warning",
         duration: 5000,
         isClosable: true,
         position: "bottom",
       });
-      setPicLoading(false);
-      return;
+      setLoading(false);
     }
   };
 
   return (
-    <VStack spacing="5px" >
+    <VStack spacing="5px">
       <FormControl id="first-name" isRequired>
         <FormLabel>Name</FormLabel>
         <Input
@@ -137,6 +143,7 @@ const Signup = () => {
           onChange={(e) => setName(e.target.value)}
         />
       </FormControl>
+
       <FormControl id="email" isRequired>
         <FormLabel>Email Address</FormLabel>
         <Input
@@ -146,6 +153,7 @@ const Signup = () => {
           onChange={(e) => setEmail(e.target.value)}
         />
       </FormControl>
+
       <FormControl id="password" isRequired>
         <FormLabel>Password</FormLabel>
         <InputGroup size="md">
@@ -162,13 +170,14 @@ const Signup = () => {
           </InputRightElement>
         </InputGroup>
       </FormControl>
-      <FormControl id="password" isRequired>
+
+      <FormControl id="confirmpassword" isRequired>
         <FormLabel>Confirm Password</FormLabel>
         <InputGroup size="md">
           <Input
             type={show ? "text" : "password"}
-            placeholder="Confirm password"
-            value={password}
+            placeholder="Confirm Password"
+            value={confirmpassword}
             onChange={(e) => setConfirmpassword(e.target.value)}
           />
           <InputRightElement width="4.5rem">
@@ -178,22 +187,23 @@ const Signup = () => {
           </InputRightElement>
         </InputGroup>
       </FormControl>
+
       <FormControl id="pic">
         <FormLabel>Upload your Picture</FormLabel>
         <Input
           type="file"
           p={1.5}
           accept="image/*"
-          value={pic}
           onChange={(e) => postDetails(e.target.files[0])}
         />
       </FormControl>
+
       <Button
         colorScheme="blue"
         width="100%"
         style={{ marginTop: 15 }}
         onClick={submitHandler}
-        isLoading={picLoading}
+        isLoading={loading}
       >
         Sign Up
       </Button>
